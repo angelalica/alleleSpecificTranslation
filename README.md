@@ -2,7 +2,7 @@
 
 THIS SCRIPT determines if two alleles are significantly differentially translated given ddPCR data.
 
-There are two required arguments:
+There are two required arguments:<br/>
 1) ```--filename``` = the name of the input ddPCR file
 2) ```--expected_ratios``` = expected mutant/wildtype ratio (usually 1:1 for a diploid heterozygote)
 
