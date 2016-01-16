@@ -1,22 +1,13 @@
-#!/usr/bin/Rscript
-## CC: Better if you can check if it is already installed first. 
-install.packages("argparse", repos="http://cran.rstudio.com/")
+if("argparse" %in% rownames(installed.packages()) == FALSE) {install.packages("argparse")}
 require("argparse")
 
 ### THIS SCRIPT determines if two alleles are significantly differentially translated given ddPCR data
 
-## CC: The description of the file format should be moved to README
-# Required args: 
-# filename = name of the input file containing the ddPCR data. The ddPCR data is a matrix where each row is a sample, and the 4 columns contain the Ch1 and Ch2 pos/neg counts (where Ch1 and Ch2 correspond to the mutant and wildtype allele)
-# expected_ratios = user's expected mutant/wildtype ratio of counts (usually 1:1 if heterozygous with 2 alleles) = usually generated from totalRNA ddPCR sample
-
-# Optional arguments: fractions, diff, nsims, output (see help for more information)
-parser <- ArgumentParser(description='Process cmd line arguments')
+parser <- ArgumentParser(description='Process command line arguments')
 
 parser$add_argument('--filename', default = "~/Documents", help='name of input ddPCR file')
 parser$add_argument("--expected_ratios", default = 1.0, type = "double", help="expected mutant/wildtype ratio")
 parser$add_argument("--fractions", default = '', help = "vector containing grouped fractions (inferred from polysome profiling data)")
-parser$add_argument("--diff", default = 0.10, type = 'double', help = "maximum acceptable difference between inputted and calculated mutant/wildtype expected ratios")
 parser$add_argument("--nsims", default = 1000, type = 'integer', help = "number of bootstrap simulations")
 parser$add_argument("--output", default = "output.csv", help = "filename of output file with pvalues")
 
@@ -25,7 +16,6 @@ args <- parser$parse_args()
 filename = args$filename
 expected_ratios = args$expected_ratios
 fractions = as.numeric(unlist(strsplit(args$fractions, ",")))
-diff = args$diff
 nsims = args$nsims
 output = args$output
 
@@ -40,7 +30,14 @@ summarize_data = function(filename) {
   for (i in 1:length(rownames(full_data))) {
     full_data[i,3] = full_data[i,3] + full_data[i,2]
     full_data[i,4] = full_data[i,4] + full_data[i,2]
-    full_data[i,6] = c(full_data[i,3] / full_data[i,4])
+    
+    if (full_data[i,3] < 10 || full_data[i,4] < 10) {
+      print("Warning: total mutant and/or wildtype counts less than 10.")
+      
+    if (full_data[i,4] != 0) {
+      full_data[i,6] = c(full_data[i,3] / full_data[i,4])
+    }
+    
   }
   colnames(full_data) = c("fraction", "both", "mutant", "wildtype", "neither", "MT/WT ratio")
   
@@ -48,11 +45,7 @@ summarize_data = function(filename) {
   condensed_data = NULL
   #condense by group id   
   for (fraction in unique(full_data[, 1])) {
-## CC: You can use the 3:6 notation for simplicity
-    condensed_row = c(mean(full_data[which(full_data[, 1] == fraction), 3]), 
-                      mean(full_data[which(full_data[, 1] == fraction), 4]),
-                      mean(full_data[which(full_data[, 1] == fraction), 5]),
-                      mean(full_data[which(full_data[, 1] == fraction), 6]))
+    condensed_row = c(mean(full_data[which(full_data[, 1] == fraction), 3:6]))
     rbind(condensed_data, condensed_row) -> condensed_data
   }
   rownames(condensed_data) = unique(full_data[, 1])
@@ -64,30 +57,16 @@ summarize_data = function(filename) {
 #INPUT: condensed data (as shown above), expected MT/WT ratio inputted by the user (i.e. totalRNA generated from ddPCR data)
 #OUTPUT: value of expected ratio to be used for the remainder of the program (either inputted or calculated)
 #function calculates the expected counts from summing up the data and outputs both expected ratios, then asks user which one to use moving forward
-get_expected_counts = function(condensed_data, expected_ratio, diff) {
+print_expected_counts = function(condensed_data, expected_ratio) {
   
   #sum up all values to obtain totalRNA MT/WT ratio as calculated from ddPCR data
   total_calculated_ratio = sum(condensed_data[, 1]) / sum(condensed_data[, 2])
   cat(sprintf("Inputted Expected Ratio: %f\n", expected_ratio))
   cat(sprintf("Calculated Expected Ratio: %f\n", total_calculated_ratio))
   
+  #use expected_ratios instead of the one calculated 
   return (expected_ratios)
-#   if ((abs(total_calculated_ratio - expected_ratio) > (expected_ratio * diff)) |
-#       (abs(total_calculated_ratio - expected_ratio) > (total_calculated_ratio * diff))) {
-#     cat(sprintf("Warning: the inputted expected MT/WT ratio is more than %d percent away from the calculated MT/WT ratio.\n", accepted_diff*100))
-#     print("Would you like to proceed? Please enter 'y' or 'n'.\n")
-#     if (readLines(con = stdin(), n = 1) == "n") {
-#       stop("Now exiting program.")
-#     }
-#   }
-#   
-#   cat("Press '1' to use the inputted ratio as the expected ratio, press '2' to use the calculated ratio as the expected ratio:\n")
-#   whichRatio = readLines(file("stdin"), n = 1)
-#   if (whichRatio == "1") { 
-#     return (expected_ratio)
-#   } else if (whichRatio == "2") { 
-#     return (total_calculated_ratio) 
-#   }   
+  
 }
 
 #INPUT: condensed_data, vector containing how many fractions correspond to the number of ribosomes/mRNA 
