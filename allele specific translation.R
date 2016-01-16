@@ -1,9 +1,11 @@
 #!/usr/bin/Rscript
+## CC: Better if you can check if it is already installed first. 
 install.packages("argparse", repos="http://cran.rstudio.com/")
 require("argparse")
 
 ### THIS SCRIPT determines if two alleles are significantly differentially translated given ddPCR data
 
+## CC: The description of the file format should be moved to README
 # Required args: 
 # filename = name of the input file containing the ddPCR data. The ddPCR data is a matrix where each row is a sample, and the 4 columns contain the Ch1 and Ch2 pos/neg counts (where Ch1 and Ch2 correspond to the mutant and wildtype allele)
 # expected_ratios = user's expected mutant/wildtype ratio of counts (usually 1:1 if heterozygous with 2 alleles) = usually generated from totalRNA ddPCR sample
@@ -32,7 +34,8 @@ output = args$output
 summarize_data = function(filename) {
   
   full_data = read.table(filename, header = T, sep = ",")
-  
+
+## CC: Need to add argument check to avoid dividing by zero. You might even include a warning if the total positives is less < 10.   
   #add the ones where there's positive in both channels to each respective channel
   for (i in 1:length(rownames(full_data))) {
     full_data[i,3] = full_data[i,3] + full_data[i,2]
@@ -45,6 +48,7 @@ summarize_data = function(filename) {
   condensed_data = NULL
   #condense by group id   
   for (fraction in unique(full_data[, 1])) {
+## CC: You can use the 3:6 notation for simplicity
     condensed_row = c(mean(full_data[which(full_data[, 1] == fraction), 3]), 
                       mean(full_data[which(full_data[, 1] == fraction), 4]),
                       mean(full_data[which(full_data[, 1] == fraction), 5]),
@@ -175,6 +179,8 @@ is_significant = function (summarized_data, expected_value, n) {
 }
 
 #ACTUAL PROGRAM:
+## CC: A slightly better approach is to make the functions a library. 
+## Then you can add this snippet with the example data files. The user can require the library and run through this example on the interpreter. 
 
 condensed_data = summarize_data(args$filename)
 expected = get_expected_counts(condensed_data, expected_ratios, diff)
